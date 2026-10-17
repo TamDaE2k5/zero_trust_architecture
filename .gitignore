@@ -1,4 +1,6 @@
 NHAT_KY*.md
+KICH_BAN*.md
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
