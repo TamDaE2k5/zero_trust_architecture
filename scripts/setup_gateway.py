@@ -10,6 +10,7 @@ from pathlib import Path
 from cryptography import x509
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from cryptography.hazmat.primitives.serialization import pkcs12
 from cryptography.x509.oid import ExtendedKeyUsageOID, NameOID
 
 from app.gateway.security import hash_password
@@ -31,6 +32,8 @@ def setup(directory, hosts, office_networks, start_hour=0, end_hour=24):
     tls.mkdir(parents=True)
     runtime = directory / "server"
     runtime.mkdir()
+    state = directory / "state"
+    state.mkdir(exist_ok=True)
     now = datetime.now(timezone.utc)
     ca_key = rsa.generate_private_key(public_exponent=65537, key_size=3072)
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "ABAC Local Demo CA")])
@@ -93,6 +96,24 @@ def setup(directory, hosts, office_networks, start_hour=0, end_hour=24):
             sans.append(x509.DNSName(host))
     leaf("server", ExtendedKeyUsageOID.SERVER_AUTH, sans)
     client = leaf("company-device", ExtendedKeyUsageOID.CLIENT_AUTH)
+    client_key = serialization.load_pem_private_key((tls / "company-device.key").read_bytes(), None)
+    p12_pw = secrets.token_urlsafe(20)
+    (directory / "company-device.p12").write_bytes(
+        pkcs12.serialize_key_and_certificates(
+            b"ABAC company device",
+            client_key,
+            client,
+            [ca],
+            serialization.BestAvailableEncryption(p12_pw.encode()),
+        )
+    )
+    (directory / "device-import.json").write_text(
+        json.dumps(
+            {"password": p12_pw, "certificate_serial": format(client.serial_number, "X")},
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     # Issued by our CA but intentionally not enrolled: negative TLS/registry test.
     leaf("unregistered-device", ExtendedKeyUsageOID.CLIENT_AUTH)
     accounts = {

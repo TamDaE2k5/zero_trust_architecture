@@ -1,0 +1,32 @@
+{
+  "accounts": {
+    "admin": {
+      "subject": {
+        "id": "admin",
+        "role": "admin",
+        "department": "data",
+        "clearance": "restricted"
+      },
+      "password_hash": "pbkdf2_sha256$600000$0123456789abcdef0123456789abcdef$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "enabled": true,
+      "auth_version": 1
+    },
+    "engineer": {
+      "subject": {
+        "id": "engineer",
+        "role": "data_engineer",
+        "department": "data",
+        "clearance": "restricted"
+      },
+      "password_hash": "pbkdf2_sha256$600000$0123456789abcdef0123456789abcdef$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      "enabled": true,
+      "auth_version": 1
+    }
+  },
+  "devices": {
+    "4F2A1C8E3B9D7A5C": {
+      "id": "company-laptop-01",
+      "enabled": true
+    }
+  }
+}
