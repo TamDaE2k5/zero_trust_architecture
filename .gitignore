@@ -1,6 +1,11 @@
 NHAT_KY*.md
 KICH_BAN*.md
 NIST_*.md
+.gateway/
+*.key
+*.p12
+credentials.json
+gateway.env
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
