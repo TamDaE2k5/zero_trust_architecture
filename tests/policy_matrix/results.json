@@ -1,0 +1,1114 @@
+[
+  {
+    "test_id": "TC01",
+    "description": "RBAC normal read",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "rbac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "ALLOW",
+    "expected_reason": "ROLE_PERMISSION",
+    "model": "rbac",
+    "strategy": "deny-overrides",
+    "actual_result": "ALLOW",
+    "reason_code": "ROLE_PERMISSION",
+    "explanation": "The role grants this action.",
+    "decision_status": "PERMITTED",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P07"
+    ],
+    "applicable_policies": [
+      "P01"
+    ],
+    "effective_policies": [
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC02",
+    "description": "Role action restriction",
+    "input": {
+      "subject_id": "risk",
+      "resource_id": "production_db",
+      "action": "write",
+      "baseline": "rbac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "NO_APPLICABLE_PERMIT",
+    "model": "rbac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "NO_APPLICABLE_PERMIT",
+    "explanation": "No applicable Permit supports access.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P07"
+    ],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC03",
+    "description": "Intern public report",
+    "input": {
+      "subject_id": "intern",
+      "resource_id": "public_report",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "ALLOW",
+    "expected_reason": "INTERN_REPORT",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "ALLOW",
+    "reason_code": "INTERN_REPORT",
+    "explanation": "Interns may read public reports.",
+    "decision_status": "PERMITTED",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P06",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P04"
+    ],
+    "effective_policies": [
+      "P04"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC04",
+    "description": "Static department restriction",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "risk_dataset",
+      "action": "read",
+      "baseline": "static_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "DEPARTMENT_MISMATCH",
+    "model": "static_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "DEPARTMENT_MISMATCH",
+    "explanation": "Non-public resources require the same department (administrators excepted).",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P05"
+    ],
+    "effective_policies": [
+      "P05",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC05",
+    "description": "Static clearance restriction",
+    "input": {
+      "subject_id": "marketing",
+      "resource_id": "customer_dataset",
+      "action": "read",
+      "baseline": "static_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "INSUFFICIENT_CLEARANCE",
+    "model": "static_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "INSUFFICIENT_CLEARANCE",
+    "explanation": "Subject clearance must meet resource sensitivity.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P06"
+    ],
+    "effective_policies": [
+      "P06",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC06",
+    "description": "Context normal access",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "ALLOW",
+    "expected_reason": "ROLE_PERMISSION",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "ALLOW",
+    "reason_code": "ROLE_PERMISSION",
+    "explanation": "The role grants this action.",
+    "decision_status": "PERMITTED",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01"
+    ],
+    "effective_policies": [
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC07",
+    "description": "Untrusted device",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": false,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "UNTRUSTED_DEVICE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "UNTRUSTED_DEVICE",
+    "explanation": "Non-public resources require a trusted device.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P08"
+    ],
+    "effective_policies": [
+      "P08",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC08",
+    "description": "High synthetic risk",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 90
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "HIGH_RISK",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "HIGH_RISK",
+    "explanation": "Synthetic risk at or above 70 prohibits access.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P12"
+    ],
+    "effective_policies": [
+      "P12",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC09",
+    "description": "Before working hours",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T07:59:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "OUTSIDE_HOURS",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "OUTSIDE_HOURS",
+    "explanation": "Non-public resources cannot be accessed before 08:00 UTC.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P10"
+    ],
+    "effective_policies": [
+      "P10",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC10",
+    "description": "At closing hour",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T18:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "OUTSIDE_HOURS",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "OUTSIDE_HOURS",
+    "explanation": "Non-public resources cannot be accessed at or after 18:00 UTC.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P11"
+    ],
+    "effective_policies": [
+      "P11",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC11",
+    "description": "Unexpected location",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "external",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "UNEXPECTED_LOCATION",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "UNEXPECTED_LOCATION",
+    "explanation": "Non-public resources require office or VPN location.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P09"
+    ],
+    "effective_policies": [
+      "P09",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC12",
+    "description": "Missing context attribute",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      },
+      "failure_mode": "missing_attribute"
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "MISSING_ATTRIBUTE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "MISSING_ATTRIBUTE",
+    "explanation": "Required attributes from SIMULATION_ONLY/client are missing or invalid.",
+    "decision_status": "DENIED_DUE_TO_TECHNICAL_FAILURE",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC13",
+    "description": "TTL exactly at expiration boundary",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": "ttl_boundary",
+    "expected_result": "DENY",
+    "expected_reason": "STALE_ATTRIBUTE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "STALE_ATTRIBUTE",
+    "explanation": "Required attributes from users expired.",
+    "decision_status": "DENIED_DUE_TO_TECHNICAL_FAILURE",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC14",
+    "description": "Unknown subject",
+    "input": {
+      "subject_id": "unknown",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "UNKNOWN_SUBJECT",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "UNKNOWN_SUBJECT",
+    "explanation": "Unknown subject identifier.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC15",
+    "description": "Unknown resource",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "unknown",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "UNKNOWN_RESOURCE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "UNKNOWN_RESOURCE",
+    "explanation": "Unknown resource identifier.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC16",
+    "description": "No matching policy",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": "empty",
+    "expected_result": "DENY",
+    "expected_reason": "NO_APPLICABLE_PERMIT",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "NO_APPLICABLE_PERMIT",
+    "explanation": "No applicable Permit supports access.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC17",
+    "description": "No applicable Permit",
+    "input": {
+      "subject_id": "intern",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "rbac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "NO_APPLICABLE_PERMIT",
+    "model": "rbac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "NO_APPLICABLE_PERMIT",
+    "explanation": "No applicable Permit supports access.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P07"
+    ],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC18",
+    "description": "Conflict deny overrides",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": false,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "UNTRUSTED_DEVICE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "UNTRUSTED_DEVICE",
+    "explanation": "Non-public resources require a trusted device.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P08"
+    ],
+    "effective_policies": [
+      "P08",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC19",
+    "description": "Same conflict permit overrides",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "permit-overrides",
+      "context": {
+        "device_trusted": false,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "ALLOW",
+    "expected_reason": "ROLE_PERMISSION",
+    "model": "context_abac",
+    "strategy": "permit-overrides",
+    "actual_result": "ALLOW",
+    "reason_code": "ROLE_PERMISSION",
+    "explanation": "The role grants this action.",
+    "decision_status": "PERMITTED",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P08"
+    ],
+    "effective_policies": [
+      "P08",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC20",
+    "description": "Same conflict priority based",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "priority-based",
+      "context": {
+        "device_trusted": false,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "UNTRUSTED_DEVICE",
+    "model": "context_abac",
+    "strategy": "priority-based",
+    "actual_result": "DENY",
+    "reason_code": "UNTRUSTED_DEVICE",
+    "explanation": "Non-public resources require a trusted device.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P08"
+    ],
+    "effective_policies": [
+      "P08",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC21",
+    "description": "Equal priority Deny wins",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "priority-based",
+      "context": {
+        "device_trusted": false,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": "equal",
+    "expected_result": "DENY",
+    "expected_reason": "UNTRUSTED_DEVICE",
+    "model": "context_abac",
+    "strategy": "priority-based",
+    "actual_result": "DENY",
+    "reason_code": "UNTRUSTED_DEVICE",
+    "explanation": "Non-public resources require a trusted device.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P08"
+    ],
+    "effective_policies": [
+      "P01",
+      "P08"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC22",
+    "description": "Reversed policy ordering",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": false,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": "reverse",
+    "expected_result": "DENY",
+    "expected_reason": "UNTRUSTED_DEVICE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "UNTRUSTED_DEVICE",
+    "explanation": "Non-public resources require a trusted device.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P12",
+      "P11",
+      "P10",
+      "P09",
+      "P08",
+      "P07",
+      "P06",
+      "P05",
+      "P03",
+      "P02",
+      "P01"
+    ],
+    "applicable_policies": [
+      "P08",
+      "P01"
+    ],
+    "effective_policies": [
+      "P08",
+      "P01"
+    ],
+    "pass": true
+  },
+  {
+    "test_id": "TC23",
+    "description": "OPA unavailable",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      },
+      "failure_mode": "opa_unavailable"
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "OPA_UNAVAILABLE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "OPA_UNAVAILABLE",
+    "explanation": "Injected OPA connection failure.",
+    "decision_status": "DENIED_DUE_TO_TECHNICAL_FAILURE",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC24",
+    "description": "Provider unavailable",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      },
+      "failure_mode": "provider_unavailable"
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "PROVIDER_UNAVAILABLE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "PROVIDER_UNAVAILABLE",
+    "explanation": "Injected provider outage.",
+    "decision_status": "DENIED_DUE_TO_TECHNICAL_FAILURE",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC25",
+    "description": "Malformed request",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "execute",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "MALFORMED_REQUEST",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "MALFORMED_REQUEST",
+    "explanation": "Request schema validation failed.",
+    "decision_status": "DENIED_DUE_TO_TECHNICAL_FAILURE",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC26",
+    "description": "Invalid policy operator",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      }
+    },
+    "fixture": "invalid",
+    "expected_result": "DENY",
+    "expected_reason": "INVALID_POLICY",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "INVALID_POLICY",
+    "explanation": "The policy repository failed validation.",
+    "decision_status": "DENIED_DUE_TO_TECHNICAL_FAILURE",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC27",
+    "description": "Invalid OPA response",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 20
+      },
+      "failure_mode": "invalid_opa_response"
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "INVALID_OPA_RESPONSE",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "INVALID_OPA_RESPONSE",
+    "explanation": "OPA returned an invalid outcome envelope.",
+    "decision_status": "DENIED_DUE_TO_TECHNICAL_FAILURE",
+    "candidate_policies": [],
+    "applicable_policies": [],
+    "effective_policies": [],
+    "pass": true
+  },
+  {
+    "test_id": "TC28",
+    "description": "Risk exactly at threshold",
+    "input": {
+      "subject_id": "engineer",
+      "resource_id": "production_db",
+      "action": "read",
+      "baseline": "context_abac",
+      "strategy": "deny-overrides",
+      "context": {
+        "device_trusted": true,
+        "location": "office",
+        "time": "2026-01-15T10:00:00Z",
+        "risk_score": 70
+      }
+    },
+    "fixture": null,
+    "expected_result": "DENY",
+    "expected_reason": "HIGH_RISK",
+    "model": "context_abac",
+    "strategy": "deny-overrides",
+    "actual_result": "DENY",
+    "reason_code": "HIGH_RISK",
+    "explanation": "Synthetic risk at or above 70 prohibits access.",
+    "decision_status": "DENIED_BY_POLICY",
+    "candidate_policies": [
+      "P01",
+      "P02",
+      "P03",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P10",
+      "P11",
+      "P12"
+    ],
+    "applicable_policies": [
+      "P01",
+      "P12"
+    ],
+    "effective_policies": [
+      "P12",
+      "P01"
+    ],
+    "pass": true
+  }
+]

@@ -1,0 +1,15 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ABAC Data Gateway</title><link rel="stylesheet" href="/gateway.css"></head>
+<body><main><header><span class="badge">ZERO TRUST · FINAL</span><h1>Cổng truy cập dữ liệu</h1>
+<p>Danh tính đăng nhập, chứng chỉ thiết bị và chính sách quyết định dữ liệu bạn được xem.</p></header>
+<section class="panel"><h2>Đăng nhập</h2><form id="login"><label>Tài khoản<input id="username" autocomplete="username" required></label>
+<label>Mật khẩu<input id="password" type="password" autocomplete="current-password" required></label><button>Đăng nhập</button></form>
+<p id="session" role="status">Chưa đăng nhập</p><button id="logout" class="secondary">Đăng xuất</button></section>
+<section class="panel"><h2>Dữ liệu được bảo vệ</h2><label>Nguồn dữ liệu<select id="resource"><option value="customers">Khách hàng</option>
+<option value="production">Nhật ký sản xuất</option><option value="financial">Báo cáo tài chính</option></select></label>
+<button id="read">Yêu cầu truy cập</button><div id="status" role="status">Hãy đăng nhập và chọn nguồn dữ liệu.</div>
+<div class="table-wrap" id="data"></div><details><summary>Giải thích và bằng chứng quyết định</summary><pre id="evidence"></pre></details></section>
+<footer>Dữ liệu nghiệp vụ giả lập được lưu trong PostgreSQL thật. Chỉ số rủi ro là heuristic cho đồ án.
+ Chứng chỉ thiết bị phải được cài ở máy đã đăng ký; giao diện không cho phép tự khai báo độ tin cậy.</footer></main>
+<script src="/gateway.js" defer></script></body></html>
