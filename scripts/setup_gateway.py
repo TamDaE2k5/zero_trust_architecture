@@ -158,6 +158,7 @@ http {
     ssl_verify_client optional;
     ssl_protocols TLSv1.2 TLSv1.3;
     client_max_body_size 8k;
+    error_page 497 =301 https://$http_host$request_uri;
     add_header Strict-Transport-Security "max-age=86400" always;
     location = /auth/login {
       limit_req zone=login burst=10 nodelay;

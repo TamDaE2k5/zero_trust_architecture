@@ -286,15 +286,13 @@ rebuild/
 │   ├── engine.rego                 # Bộ máy thực thi ABAC & rank_lt trong OPA
 │   └── gateway.rego                # Kế hoạch hiển thị & nghĩa vụ (view_plan Obligations)
 ├── data/                           # Dữ liệu tĩnh giả lập cho PIP
+├── nginx/                          # Cấu hình Nginx Edge PEP & Proxy Headers mTLS
 ├── ui/gateway/                     # Giao diện Web Client thuần HTML/CSS/JS
 ├── scripts/                        # Bộ công cụ tự động hóa PKI, SQL & Vận hành
 ├── tests/                          # Bộ kiểm chuẩn tự động: unit, integration, failure, matrix
 ├── Dockerfile.gateway              # Đóng gói container Gateway kiên cố hóa
 ├── compose.gateway.yml             # Cấu hình vi phân đoạn 4 container Docker
-├── requirements-lock.txt           # Khóa cứng phiên bản phụ thuộc
-├── NHAT_KY_REBUILD.md              # Toàn văn nhật ký chi tiết 32 bước tái thiết
-├── KICH_BAN_KIEM_THU_VA_MINH_CHUNG.md # Cẩm nang kịch bản test và tấn công đối kháng
-└── NIST_ZERO_TRUST.md              # Đối chiếu chi tiết với tiêu chuẩn NIST SP 800-207
+└── requirements-lock.txt           # Khóa cứng phiên bản phụ thuộc
 ```
 
 ---
