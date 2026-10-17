@@ -268,7 +268,7 @@ Tất cả các kịch bản kiểm thử mẫu và hướng dẫn chi tiết n�
 rebuild/
 ├── app/                            # Mã nguồn ứng dụng Gateway PEP & PDP
 │   ├── __init__.py                 # Khởi tạo package
-│   ├── jsonio.py                   # Bộ phân tích JSON nghiêm ngặt, chống Key Collision
+│   ├── jsonio.py                   # Phân tích cú pháp JSON nghiêm ngặt, chống Key Collision
 │   ├── models/                     # Data Contracts chuẩn Pydantic (extra="forbid")
 │   ├── attribute_provider/         # PIP: Quản lý Snapshots, kiểm tra TTL & Freshness
 │   ├── policy_repository.py        # Lưu trữ và băm SHA-256 danh mục chính sách
@@ -282,17 +282,42 @@ rebuild/
 │       ├── database.py             # psycopg Connection Pool, SQL Masking & RLS injection
 │       └── api.py                  # FastAPI Gateway PEP trung tâm
 ├── policies/                       # Module chính sách (Policy-as-Code)
-│   ├── policies.json               # 12 chính sách doanh nghiệp phân tầng
+│   ├── policies.json               # 12 chính sách doanh nghiệp phân tầng P01–P12
 │   ├── engine.rego                 # Bộ máy thực thi ABAC & rank_lt trong OPA
 │   └── gateway.rego                # Kế hoạch hiển thị & nghĩa vụ (view_plan Obligations)
-├── data/                           # Dữ liệu tĩnh giả lập cho PIP
-├── nginx/                          # Cấu hình Nginx Edge PEP & Proxy Headers mTLS
-├── ui/gateway/                     # Giao diện Web Client thuần HTML/CSS/JS
+├── data/                           # Dữ liệu tĩnh giả lập cho PIP (users, contexts, resources)
+├── nginx/                          # Cấu hình Nginx Edge PEP chính thức (mount trực tiếp)
+│   ├── nginx.conf                  # Cấu hình Reverse Proxy (mTLS, HSTS, Rate limit 5r/m)
+│   ├── proxy-headers.example.conf  # Mẫu header chuyển tiếp bí mật X-Gateway-Proxy-Secret
+│   └── README.md                   # Hướng dẫn chi tiết kiến trúc Nginx Edge PEP
+├── .gateway.example/               # Thư mục mẫu blueprint cho runtime secrets & PKI
+│   ├── gateway.env.example         # Mẫu biến môi trường bảo mật truyền vào Docker
+│   ├── credentials.example.json    # Mẫu tài khoản & mật khẩu ngẫu nhiên
+│   ├── server/registry.example.json# Mẫu sổ đăng ký mTLS device serial & PBKDF2 hash
+│   └── README.md                   # Diễn giải cấu trúc runtime .gateway/
+├── ui/gateway/                     # Giao diện Web Client thuần HTML/CSS/JS (Zero-Dependency)
+│   ├── index.html                  # Giao diện trực quan, khung hiển thị minh chứng JSON
+│   ├── gateway.css                 # Định kiểu trạng thái ALLOW/DENY & Mobile Responsive
+│   └── gateway.js                  # Bộ điều khiển client lưu JWT trong RAM, chống XSS
 ├── scripts/                        # Bộ công cụ tự động hóa PKI, SQL & Vận hành
-├── tests/                          # Bộ kiểm chuẩn tự động: unit, integration, failure, matrix
-├── Dockerfile.gateway              # Đóng gói container Gateway kiên cố hóa
-├── compose.gateway.yml             # Cấu hình vi phân đoạn 4 container Docker
-└── requirements-lock.txt           # Khóa cứng phiên bản phụ thuộc
+│   ├── setup_gateway.py            # Master PKI: Tự động sinh Root CA, Certs, Passwords, .p12
+│   ├── enroll_device.py            # Đăng ký thiết bị mTLS mới & xuất file PKCS#12
+│   ├── add_accounts.py             # Bổ sung tài khoản kiểm thử bảo mật (intern, risk, revoked)
+│   ├── start.sh / stop.sh          # Kịch bản khởi chạy tự động (auto-provision) và dừng cụm
+│   ├── renew_gateway_server.py     # Tự động cấp lại cert TLS khi đổi IP mạng LAN/Wi-Fi
+│   ├── init_gateway_db.sql         # Khởi tạo bảng dữ liệu nghiệp vụ giả lập
+│   ├── gateway_rls.sql             # Kích hoạt & áp dụng bắt buộc Row-Level Security (RLS)
+│   └── init_gateway_role.sh        # Thiết lập role gateway_reader đặc quyền tối thiểu (PoLP)
+├── tests/                          # Bộ kiểm chuẩn an ninh tự động
+│   ├── unit/                       # Kiểm thử Data Contracts & Thuật toán PBKDF2
+│   ├── integration/                # Kiểm thử tích hợp Gateway mTLS & luồng ABAC
+│   ├── failure/                    # Kiểm thử khả năng chịu lỗi Đóng An toàn (Fail-Closed)
+│   └── policy_matrix/              # Ma trận kiểm thử toàn diện 12 chính sách P01–P12
+├── Dockerfile.gateway              # Đóng gói Gateway: --no-proxy-headers & --no-access-log
+├── compose.gateway.yml             # Cấu hình vi phân đoạn 4 container Docker (edge vs backend)
+├── requirements-lock.txt           # Khóa cứng phiên bản phụ thuộc chuỗi cung ứng
+├── requirements-gateway.txt        # Thư viện runtime của Gateway
+└── pyproject.toml                  # Cấu hình gói và metadata dự án
 ```
 
 ---
