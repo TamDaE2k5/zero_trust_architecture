@@ -1,4 +1,17 @@
-"""Private Gateway application. Only the TLS proxy is an external entry point."""
+"""
+Mô-đun Điểm Cổng Dịch vụ Chính (API Gateway - PEP Enforcement Point).
+Chức năng chính:
+1. Đóng vai trò là Điểm Thực thi Chính sách (PEP - Policy Enforcement Point) theo mô hình Zero Trust.
+2. Nằm sau Nginx mTLS Proxy; chỉ chấp nhận các kết nối nội bộ có mã bí mật hợp lệ (`x-gateway-proxy-secret`).
+3. Cung cấp các Endpoint:
+   - `/auth/login`: Xác thực tài khoản, kiểm tra mTLS, cấp phát JWT Token ràng buộc thiết bị và lưu phiên vào Allowlist.
+   - `/auth/logout`: Thu hồi phiên tức thì trong SQLite Allowlist (chống tấn công Replay).
+   - `/api/v1/data/{resource}`: Endpoint bảo vệ dữ liệu nhạy cảm (Customers, Financial, Production),
+     kết hợp đánh giá ABAC qua OPA và thực thi bảo vệ sâu (RLS/DDM) trong PostgreSQL.
+   - `/health`: Kiểm tra sức khỏe toàn diện của OPA Engine và PostgreSQL Database.
+4. Triệt để tuân thủ nguyên tắc an toàn Fail-Closed: Mọi ngoại lệ, sự cố hay từ chối truy cập đều trả về
+   phán quyết DENY và bảo đảm CSDL không bị chạm tới (`db_queried = false`).
+"""
 
 import hmac
 import ipaddress
@@ -29,6 +42,7 @@ from app.jsonio import strict_json_loads
 from app.models import AccessRequest, StrictModel, Subject
 from app.services import DecisionService, ROOT
 
+# Thiết lập Logger chuyên dụng cho Nhật ký Kiểm toán (Audit Log)
 LOG = logging.getLogger("gateway.audit")
 LOG.setLevel(logging.INFO)
 if not LOG.handlers:
@@ -37,11 +51,18 @@ LOG.propagate = False
 
 
 class Login(StrictModel):
+    """Mô hình dữ liệu nhận vào khi người dùng đăng nhập."""
     username: str = Field(min_length=1, max_length=100)
     password: str = Field(min_length=1, max_length=200)
 
 
 def load_registry(path):
+    """
+    Nạp và kiểm tra tính toàn vẹn của danh bạ hệ thống (`registry.json`):
+    - Chứa danh sách tài khoản (accounts): quyền hạn subject, mã băm mật khẩu, trạng thái kích hoạt enabled, phiên bản auth_version.
+    - Chứa danh sách thiết bị được phê duyệt (devices): số Serial chứng chỉ phần cứng X.509 và trạng thái kích hoạt.
+    - Áp dụng kiểm tra hợp đồng nghiêm ngặt bằng biểu thức chính quy (Regex) và Pydantic.
+    """
     registry = strict_json_loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(registry, dict) or set(registry) != {"accounts", "devices"}:
         raise ValueError("Invalid registry structure")
@@ -78,6 +99,12 @@ def load_registry(path):
 
 
 class LoginLimiter:
+    """
+    Bộ giới hạn tốc độ đăng nhập (Rate Limiter) tại Gateway:
+    - Giới hạn tối đa 10 lần thử đăng nhập trong vòng 1 phút từ cùng 1 địa chỉ IP.
+    - Bảo vệ hệ thống khỏi tấn công dò mật khẩu (Brute-force / Credential Stuffing).
+    - Sử dụng hàng đợi Thread-safe và tự động giải phóng bộ nhớ cho các IP đã hết hạn.
+    """
     def __init__(self):
         self.attempts = defaultdict(deque)
         self.lock = threading.Lock()
@@ -85,7 +112,6 @@ class LoginLimiter:
     def check(self, address):
         with self.lock:
             now = time.monotonic()
-            # Bound memory; evict only expired entries, never active restrictions.
             for key in list(self.attempts):
                 while self.attempts[key] and self.attempts[key][0] < now - 60:
                     self.attempts[key].popleft()
@@ -100,6 +126,12 @@ class LoginLimiter:
 
 
 def create_app(config=None, database=None, clock=None):
+    """
+    Hàm nhà máy khởi tạo ứng dụng FastAPI Gateway:
+    - Nạp cấu hình từ biến môi trường (Secrets, DB URL, Registry, Timezone).
+    - Khởi tạo kết nối SQLite Session Allowlist và PostgreSQL Pool.
+    - Đăng ký các Middleware bảo mật, xử lý ngoại lệ và các Route dịch vụ.
+    """
     config = config or {
         "secret": os.environ["GATEWAY_JWT_SECRET"],
         "proxy_secret": os.environ["GATEWAY_PROXY_SECRET"],
@@ -122,7 +154,6 @@ def create_app(config=None, database=None, clock=None):
         or str(Path(config["registry"]).parent / "sessions.sqlite")
     )
     db = database or Database(config["database_url"])
-    # Every request gets a provider; HTTP client/catalogue repository remain shared.
     core = DecisionService()
     core.simulation = False
     core.dev_failures = False
@@ -133,6 +164,7 @@ def create_app(config=None, database=None, clock=None):
 
     @asynccontextmanager
     async def lifespan(app):
+        """Quản lý vòng đời ứng dụng: dọn dẹp kết nối OPA và DB khi tắt server."""
         yield
         core.opa.client.close()
         db.close()
@@ -146,6 +178,18 @@ def create_app(config=None, database=None, clock=None):
 
     @app.middleware("http")
     async def private_ingress(request, call_next):
+        """
+        Tầng Middleware Cửa ngõ (Private Ingress Security Barrier):
+        1. Gắn mã truy vết duy nhất `request_id` cho mỗi yêu cầu.
+        2. Xác thực Proxy Secret: Kiểm tra header `x-gateway-proxy-secret` bằng `hmac.compare_digest`.
+           Nếu không khớp => Yêu cầu không đi qua Nginx mTLS mà cố tình bypass kết nối trực tiếp => Chặn 403 ngay!
+        3. Bắt mọi ngoại lệ chưa lường trước, tự động chuyển thành lỗi HTTP 503 Fail-Closed.
+        4. Ghi nhật ký kiểm toán (Audit Log) cho các yêu cầu bị từ chối.
+        5. Đính kèm các tiêu đề an ninh HTTP nghiêm ngặt:
+           - Cache-Control: no-store (Cấm trình duyệt lưu cache dữ liệu nhạy cảm).
+           - X-Content-Type-Options: nosniff (Chống tấn công MIME-sniffing).
+           - Content-Security-Policy: Chặn tải script/style độc hại từ bên ngoài.
+        """
         request_id = str(uuid4())
         request.state.request_id = request_id
         if request.url.path != "/health" and not hmac.compare_digest(
@@ -189,6 +233,7 @@ def create_app(config=None, database=None, clock=None):
 
     @app.exception_handler(HTTPException)
     async def rejected(request, exc):
+        """Định dạng phản hồi lỗi chuẩn tắc: luôn có decision=DENY và cờ db_queried=False."""
         code = {
             401: "AUTHENTICATION_FAILED",
             403: "UNTRUSTED_CONTEXT",
@@ -208,14 +253,15 @@ def create_app(config=None, database=None, clock=None):
         )
 
     def peer(request):
+        """Trích xuất địa chỉ IP thực tế của Client do Nginx chuyển tiếp (không đọc X-Forwarded-For giả)."""
         try:
-            # Proxy overwrites this header with its actual TCP peer, not X-Forwarded-For.
             return ipaddress.ip_address(request.headers["x-gateway-client-ip"])
         except (KeyError, ValueError):
             raise HTTPException(403, "Invalid trusted client address") from None
 
     @app.get("/health")
     def health():
+        """Endpoint kiểm tra sức khỏe hệ thống: cả OPA Engine và PostgreSQL DB phải sẵn sàng mới trả 200."""
         try:
             engine = core.opa.client.get("/v1/data/capstone/engine_version").json()
             view = core.opa.client.get("/v1/data/gateway/resource_columns").json()
@@ -247,6 +293,16 @@ def create_app(config=None, database=None, clock=None):
 
     @app.post("/auth/login")
     def login(body: Login, request: Request):
+        """
+        Xử lý Đăng nhập & Cấp phát Phiên (Authentication & Token Issuance):
+        1. Kiểm tra giới hạn tốc độ (Rate Limit) theo IP client.
+        2. Thẩm định username và mật khẩu bằng PBKDF2 hash (dùng dummy_hash nếu user không tồn tại để chống Timing Attack).
+        3. Kiểm tra trạng thái tài khoản (`enabled == True`).
+        4. Trích xuất số Serial của chứng chỉ thiết bị nếu vượt qua mTLS (`x-gateway-device-verified == SUCCESS`).
+        5. Cấp phát Token JWT (có chứa sub, auth_version, exp, và device_serial).
+        6. Lưu mã băm `jti` của Token vào SQLite Session Allowlist.
+        7. Trả về Token có thời hạn 600 giây (10 phút) cho người dùng.
+        """
         limiter.check(str(peer(request)))
         row = load_registry(config["registry"])["accounts"].get(body.username)
         matched = verify_password(body.password, row["password_hash"] if row else dummy_hash)
@@ -266,6 +322,16 @@ def create_app(config=None, database=None, clock=None):
         }
 
     def authenticate(request, registry):
+        """
+        Hàm Xác thực Danh tính & Kiểm tra Phiên (Authentication & Token Validation):
+        1. Yêu cầu Header `Authorization: Bearer <token>`.
+        2. Giải mã và xác thực chữ ký số của JWT Token.
+        3. Kiểm tra xem tài khoản có còn được kích hoạt không và auth_version có khớp không (chống dùng token cũ sau đổi mật khẩu).
+        4. Kiểm tra Session Allowlist trong SQLite: Nếu phiên đã bị Logout hoặc hết hạn => Báo lỗi Inactive session ngay!
+        5. Ràng buộc thiết bị phần cứng (Device Binding): So khớp số serial trong Token với serial từ bắt tay mTLS hiện tại.
+           Nếu kẻ gian cắp token mang sang máy tính khác => Lập tức báo lỗi "Token device mismatch"!
+        6. Trả về thông tin Subject của người dùng từ bản ghi nội bộ máy chủ (không lấy từ client).
+        """
         authorization = request.headers.get("authorization", "")
         if not authorization.startswith("Bearer "):
             raise HTTPException(401, "Authentication required")
@@ -290,35 +356,70 @@ def create_app(config=None, database=None, clock=None):
 
     @app.post("/auth/logout")
     def logout(request: Request):
+        """
+        Xử lý Đăng xuất (Session Revocation):
+        Xác thực danh tính người dùng và xóa ngay mã băm của phiên trong bảng SQLite Allowlist.
+        Sau khi gọi lệnh này, token cũ hoàn toàn không thể tái sử dụng để truy cập dữ liệu!
+        """
         authenticate(request, load_registry(config["registry"]))
         sessions.revoke(request.state.claims)
         return {"revoked": True}
 
     @app.get("/api/v1/data/{resource}")
     def protected_data(resource: str, request: Request):
+        """
+        Endpoint Truy xuất Dữ liệu Được Bảo vệ (Core Protected Data Endpoint):
+        1. Tuyệt đối cấm Query Parameters trên URL (chống SQL Injection / Override bối cảnh).
+        2. Xác thực danh tính và phiên qua hàm `authenticate`.
+        3. Thu thập thuộc tính ngữ cảnh thực tế (Context):
+           - device_trusted: Thiết bị có chứng chỉ mTLS hợp lệ và đã đăng ký trong danh bạ hay không.
+           - location: Nằm trong dải mạng văn phòng ('office') hay bên ngoài ('external').
+           - risk_score: Thiết bị tin cậy = 10 điểm (Low Risk); Thiết bị lạ = 50 điểm (Medium Risk).
+        4. Chuyển giao toàn bộ thuộc tính sang OPA Engine để đánh giá phân quyền ABAC.
+        5. Nếu OPA phán quyết DENY:
+           Ghi Audit log, trả về mã lỗi HTTP 403 (bị từ chối do chính sách) hoặc 503 (lỗi hạ tầng).
+           Cờ `db_queried = False` chứng minh CSDL hoàn toàn không bị chạm tới!
+        6. Nếu OPA phán quyết ALLOW:
+           - Gửi yêu cầu sang OPA lấy Kế hoạch hiển thị (ViewPlan / Obligations): xác định danh sách
+             cột được xem, các cột bắt buộc phải che mờ (masking), và phạm vi lọc dòng (row_scope).
+           - Chuyển ViewPlan xuống Database để thực thi truy vấn an toàn bằng tài khoản `gateway_reader`.
+           - PostgreSQL tự động che mờ cột (DDM) và tự động lọc dòng (RLS).
+        7. Ghi Audit Log thành công và trả về dữ liệu an toàn kèm theo các chỉ số đo lường hiệu năng.
+        """
+        # Tuyệt đối cấm tham số URL giả mạo
         if request.query_params:
             raise HTTPException(422, "Gateway does not accept overrides or SQL parameters")
+            
         started = perf_counter()
         registry = load_registry(config["registry"])
         subject = authenticate(request, registry)
+        
         if resource not in {"customers", "financial", "production"}:
             raise HTTPException(404, "Unknown protected resource")
+            
         address = peer(request)
         device = registry["devices"].get(request.headers.get("x-gateway-device-serial", "").upper())
         trusted = request.headers.get("x-gateway-device-verified") == "SUCCESS" and bool(
             device and device["enabled"]
         )
         now = get_now()
+        
+        # Thiết lập bối cảnh khách quan từ hạ tầng
         context = {
             "device_trusted": trusted,
             "location": "office" if any(address in network for network in networks) else "external",
             "time": now.isoformat(),
             "risk_score": 10 if trusted else 50,
         }
+        
+        # 1. Điểm cung cấp thuộc tính (PIP)
         provider = GatewayProvider(subject, context, now, config["timezone"])
         access = AccessRequest(subject_id=subject["id"], resource_id=resource, action="read")
+        
+        # 2. Điểm quyết định chính sách (PDP - OPA Engine)
         result = core.evaluate(access, now=now, trusted_provider=provider)
         result["request_id"] = request.state.request_id
+        
         audit = {
             "request_id": result["request_id"],
             "subject": subject["id"],
@@ -328,6 +429,8 @@ def create_app(config=None, database=None, clock=None):
             "policy_digest": result["trace"].get("catalogue_digest"),
             "db_queried": False,
         }
+        
+        # 3. Xử lý khi bị TỪ CHỐI (DENY)
         if result["decision"] != "ALLOW":
             LOG.info("%s", json.dumps(audit))
             return JSONResponse(
@@ -339,8 +442,11 @@ def create_app(config=None, database=None, clock=None):
                     "db_queried": False,
                 },
             )
+            
+        # 4. Xử lý khi được CHO PHÉP (ALLOW) - Thực thi nghĩa vụ (Obligations)
         try:
             plan_tick = perf_counter()
+            # Lấy ViewPlan từ OPA để biết cần che mờ cột nào và lọc dòng thế nào
             response = core.opa.client.post(
                 "/v1/data/gateway/view_plan",
                 json={"input": {"decision": "ALLOW", "subject": subject, "resource": resource}},
@@ -350,11 +456,14 @@ def create_app(config=None, database=None, clock=None):
             if plan.resource != resource:
                 raise ValueError("Mismatched obligation resource")
             plan_ms = (perf_counter() - plan_tick) * 1000
+            
+            # Truy vấn PostgreSQL với RLS và DDM
             db_tick = perf_counter()
             audit["db_queried"] = True
             rows = db.query(plan)
             db_ms = (perf_counter() - db_tick) * 1000
         except Exception:
+            # Nguyên tắc Fail-Closed: Bất kỳ lỗi thực thi nào cũng chuyển thành DENY 503
             LOG.error(
                 "%s",
                 json.dumps({**audit, "decision": "DENY", "reason_code": "ENFORCEMENT_FAILURE"}),
@@ -362,8 +471,10 @@ def create_app(config=None, database=None, clock=None):
             return JSONResponse(
                 status_code=503, content={"decision": "DENY", "reason_code": "ENFORCEMENT_FAILURE"}
             )
+            
         audit.update(db_queried=True, row_count=len(rows), obligations=plan.model_dump())
         LOG.info("%s", json.dumps(audit))
+        
         return {
             "request_id": result["request_id"],
             "decision": "ALLOW",

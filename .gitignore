@@ -1,6 +1,11 @@
 NHAT_KY*.md
 KICH_BAN*.md
 NIST_*.md
+
+tests/report
+scripts/demo*.py
+
+
 .gateway/
 *.key
 *.p12

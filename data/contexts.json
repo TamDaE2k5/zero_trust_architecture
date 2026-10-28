@@ -7,7 +7,7 @@
       "risk_score": 20
     },
     "source": "synthetic-server-snapshot",
-    "timestamp": "2026-10-07T02:03:27.064813+00:00",
+    "timestamp": "2026-10-28T14:40:15.576311+00:00",
     "ttl_seconds": 3600
   },
   "engineer": {
@@ -18,7 +18,7 @@
       "risk_score": 20
     },
     "source": "synthetic-server-snapshot",
-    "timestamp": "2026-10-07T02:03:27.064813+00:00",
+    "timestamp": "2026-10-28T14:40:15.576311+00:00",
     "ttl_seconds": 3600
   },
   "risk": {
@@ -29,7 +29,7 @@
       "risk_score": 20
     },
     "source": "synthetic-server-snapshot",
-    "timestamp": "2026-10-07T02:03:27.064813+00:00",
+    "timestamp": "2026-10-28T14:40:15.576311+00:00",
     "ttl_seconds": 3600
   },
   "marketing": {
@@ -40,7 +40,7 @@
       "risk_score": 20
     },
     "source": "synthetic-server-snapshot",
-    "timestamp": "2026-10-07T02:03:27.064813+00:00",
+    "timestamp": "2026-10-28T14:40:15.576311+00:00",
     "ttl_seconds": 3600
   },
   "intern": {
@@ -51,7 +51,7 @@
       "risk_score": 20
     },
     "source": "synthetic-server-snapshot",
-    "timestamp": "2026-10-07T02:03:27.064813+00:00",
+    "timestamp": "2026-10-28T14:40:15.576311+00:00",
     "ttl_seconds": 3600
   }
 }

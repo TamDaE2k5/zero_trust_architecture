@@ -18,9 +18,11 @@
 5. [Cơ chế Nghĩa vụ (Obligations) & PostgreSQL RLS](#-co-che-nghia-vu-obligations--postgresql-rls)
 6. [Hệ thống 12 Chính sách Doanh nghiệp (P01–P12)](#-he-thong-12-chinh-sach-doanh-nghiep-p01p12)
 7. [Hướng dẫn Khởi chạy & Vận hành Nhanh](#-huong-dan-khoi-chay--van-hanh-nhanh)
-8. [Danh bạ Tài khoản Mẫu & Phân quyền](#-danh-ba-tai-khoan-mau--phan-quyen)
-9. [Kịch bản Kiểm thử & Minh chứng An ninh (Test Cases)](#-kich-ban-kiem-thu--minh-chung-an-ninh-test-cases)
-10. [Bản đồ Cấu trúc Dự án (Repository Roadmap)](#-ban-do-cau-truc-du-an-repository-roadmap)
+8. [Bảng Tổng hợp Toàn bộ API Endpoints](#-bang-tong-hop-toan-bo-api-endpoints)
+9. [Danh bạ Tài khoản Mẫu & Phân quyền](#-danh-ba-tai-khoan-mau--phan-quyen)
+10. [Kịch bản Kiểm thử & Minh chứng An ninh (Test Cases)](#-kich-ban-kiem-thu--minh-chung-an-ninh-test-cases)
+11. [Bộ Công cụ Diễn tập & Đo lường Tự động (Scripts)](#-bo-cong-cu-dien-tap--do-luong-tu-dong-scripts)
+12. [Bản đồ Cấu trúc Dự án (Repository Roadmap)](#-ban-do-cau-truc-du-an-repository-roadmap)
 
 ---
 
@@ -234,6 +236,43 @@ Mở trình duyệt truy cập: **`https://127.0.0.1:28443/`**
 
 ---
 
+## 🔌 BẢNG TỔNG HỢP TOÀN BỘ API ENDPOINTS
+
+Kiến trúc Zero Trust Gateway phân định nghiêm ngặt 2 miền mạng:
+- **Public Edge Endpoints (Truy cập qua HTTPS Nginx Cổng 28443):** Được bảo vệ đa tầng qua mTLS x509, mã hóa TLS 1.3, Rate Limiting (5 requests/min), Token Binding RFC 8705 và kiểm tra Session Allowlist.
+- **Internal Isolated Endpoints (Nội bộ OPA PDP & PostgreSQL trong mạng `backend: internal: true`):** Hoàn toàn cô lập khỏi Internet/LAN, chỉ Gateway PEP được giao tiếp nội bộ.
+
+### 1. Danh mục Endpoint Công khai (External Gateway PEP API)
+
+| Phương thức | Đường dẫn (Endpoint) | Quyền hạn & Xác thực | Tham số / Payload | Định dạng phản hồi | Diễn giải chức năng & Cơ chế an ninh |
+|---|---|---|---|---|---|
+| `GET` | `/health` | Không yêu cầu (Public) | Không | JSON: `{"version": "4.0.0", "opa_ready": bool, "database_ready": bool}` | **Kiểm tra sức khỏe hệ thống:** Kiểm tra trạng thái sẵn sàng của OPA Engine và CSDL PostgreSQL. Trả về `200 OK` hoặc `503 Service Unavailable`. Không làm lộ stack trace nội bộ khi gặp sự cố. |
+| `GET` | `/` | HTTPS (khuyên dùng mTLS) | Không | HTML (`ui/gateway/index.html`) | **Giao diện Web Client:** Phục vụ ứng dụng Web Client Zero-Trust trực quan, hỗ trợ chọn chứng chỉ máy khách mTLS từ trình duyệt. |
+| `GET` | `/gateway.js` | HTTPS | Không | JavaScript (`ui/gateway/gateway.js`) | **Mã điều khiển Client:** Xử lý xác thực, lưu JWT trong bộ nhớ RAM (chống XSS), tự động hủy và ngăn hiển thị dữ liệu trễ sau khi Logout (chống Race Condition). |
+| `GET` | `/gateway.css` | HTTPS | Không | CSS (`ui/gateway/gateway.css`) | **Định kiểu Giao diện:** Hiển thị trực quan trạng thái phán quyết an ninh `ALLOW` (xanh) / `DENY` (đỏ) và bảng dữ liệu. |
+| `POST` | `/auth/login` | mTLS Cert + Rate Limit (5r/m) | JSON Body:<br/>`{"username": str, "password": str}` | `200 OK`:<br/>`{"access_token": str, "token_type": "bearer", "expires_in": 600}`<br/>hoặc `401 Unauthorized` | **Xác thực & Cấp phát Token Binding:**<br/>- Kiểm tra mật khẩu bằng `PBKDF2-HMAC-SHA256` (600.000 vòng), chống Timing Attack bằng `dummy_hash`.<br/>- Trích xuất Serial chứng chỉ mTLS nhúng vào claim `device_serial` của JWT (RFC 8705).<br/>- Ghi nhận phiên đăng nhập vào SQLite Active Session Store. |
+| `POST` | `/auth/logout` | Bearer Token + mTLS Cert | Header:<br/>`Authorization: Bearer <JWT>` | `200 OK`:<br/>`{"revoked": true}`<br/>hoặc `401 Unauthorized` | **Thu hồi phiên tức thì (Instant Revocation):**<br/>- Thu hồi mã định danh `jti` trong SQLite Store ngay lập tức.<br/>- Ngăn chặn triệt để tấn công Replay Attack bằng token cũ sau khi người dùng đã đăng xuất. |
+| `GET` | `/api/v1/data/customers` | Bearer Token + mTLS Cert | **CẤM** query parameters (chống override) | `200 OK` (Data kèm Masked columns)<br/>hoặc `403 Forbidden` (DENY) | **Đọc dữ liệu Khách hàng (PII):**<br/>- OPA đánh giá 12 luật ABAC (P01–P12) theo `deny-overrides`.<br/>- Người dùng thông thường (`analyst`, `engineer`) bị che mờ các trường nhạy cảm `email`, `salary`, `national_id` thành `'REDACTED'`.<br/>- CSDL PostgreSQL áp dụng RLS tự động lọc dòng theo phòng ban (Marketing chỉ thấy dòng Marketing). `admin` xem được toàn bộ. |
+| `GET` | `/api/v1/data/financial` | Bearer Token + mTLS Cert | **CẤM** query parameters | `200 OK` (Financial records)<br/>hoặc `403 Forbidden` | **Đọc hồ sơ Tài chính doanh nghiệp:**<br/>- Yêu cầu phòng ban `finance` (`P05`) và hạn mức bảo mật clearance `restricted` (`P06`).<br/>- Các tài khoản Marketing hoặc Intern truy cập sẽ bị từ chối ngay lập tức. |
+| `GET` | `/api/v1/data/production` | Bearer Token + mTLS Cert | **CẤM** query parameters | `200 OK` (Production logs)<br/>hoặc `403 Forbidden` | **Đọc nhật ký Hệ thống Sản xuất:**<br/>- Cho phép tài khoản Quản trị (`admin`) và Kỹ sư dữ liệu (`data_engineer`) thuộc phòng `data` phục vụ vận hành hạ tầng. |
+
+---
+
+### 2. Danh mục Endpoint Động cơ Chính sách Nội bộ (Internal OPA Engine :8181)
+
+> [!NOTE]
+> Các endpoint dưới đây nằm sâu trong mạng Docker `backend: internal: true`, **hoàn toàn không mở cổng ra ngoài host**. Chỉ duy nhất container `gateway` được phép gọi nội bộ để trao đổi logic chính sách.
+
+| Phương thức | Đường dẫn (URI) | Dữ liệu truyền vào (Payload) | Kết quả trả về | Mục đích kiến trúc |
+|---|---|---|---|---|
+| `GET` | `/v1/data/capstone/engine_version` | Không | `{"result": "2.0.0"}` | Healthcheck kiểm tra tính toàn vẹn của mã Rego trong OPA. |
+| `GET` | `/v1/data/gateway/resource_columns` | Không | JSON danh mục cột hợp lệ cho 3 bảng nghiệp vụ | Cung cấp siêu dữ liệu để Gateway xác thực tính hợp lệ của ViewPlan Pydantic. |
+| `PUT` | `/v1/data/capstone_catalogues/{digest}` | JSON danh mục 12 chính sách | `200 OK` | Nạp và lưu cache danh mục chính sách gắn với mã băm SHA-256 bất biến. |
+| `POST` | `/v1/data/capstone/outcomes?metrics=true` | Input thuộc tính người dùng, tài nguyên và bối cảnh PIP | Mảng đánh giá 12 chính sách + thời gian đo vi mô `opa_eval_ms` | Động cơ Rego đánh giá song song 12 điều kiện chính sách, trả về phán quyết Permit/Deny cho Combiner. |
+| `POST` | `/v1/data/gateway/view_plan` | Input `{decision: "ALLOW", subject, resource}` | ViewPlan: `{columns, mask, row_scope, limit}` | OPA ban hành Nghĩa vụ (Obligation): chỉ định cột cần che mờ và phạm vi phòng ban để Gateway tiêm vào giao dịch PostgreSQL. |
+
+---
+
 ## 👥 DANH BẠ TÀI KHOẢN MẪU & PHÂN QUYỀN
 
 | Tài khoản | Vai trò (Role) | Phòng ban | Clearance | Quyền hạn & Kỳ vọng |
@@ -259,6 +298,20 @@ Tất cả các kịch bản kiểm thử mẫu và hướng dẫn chi tiết n�
 3. **Kiểm thử Trộm Token sang Máy khác (Hardware Token Binding Attack):** Lấy JWT của máy có mTLS mang sang máy không có mTLS gửi kèm $\rightarrow$ Gateway phát hiện số serial thiết bị không khớp $\rightarrow$ Trả về `HTTP 401 Token device mismatch`.
 4. **Kiểm thử Truy cập Ngoài Giờ (Out of Business Hours):** Gửi request sau 18:00 hoặc trước 08:00 $\rightarrow$ Chính sách P10/P11 kích hoạt $\rightarrow$ Trả về `HTTP 403 DENY` với mã `POLICY_DEFAULT_DENY`, trường `db_queried: False`.
 5. **Kiểm thử Thiết bị Chưa Ghi danh (Unregistered Device):** Dùng chứng chỉ `unregistered-device` (dù ký bởi đúng Root CA của công ty) $\rightarrow$ Bị từ chối vì không có trong `registry.json`.
+
+---
+
+## 🛠️ BỘ CÔNG CỤ DIỄN TẬP & ĐO LƯỜNG TỰ ĐỘNG (SCRIPTS)
+
+Hệ thống tích hợp sẵn các bộ kịch bản tự động hóa phục vụ thực nghiệm, kiểm thử an ninh và đối chiếu báo cáo:
+
+| Script | Lệnh thực thi | Mục tiêu & Nội dung kiểm chứng |
+|---|---|---|
+| [`demo_6_kich_ban.py`](file:///run/media/tamdae/04C8A69DC8A68C8C/Users/LENOVO/Documents/TL_Kỳ_1_năm_4/Data_Security/rebuild/scripts/demo_6_kich_ban.py) | `python3 scripts/demo_6_kich_ban.py --all`<br/>*(hoặc `--kb 1` đến `--kb 6`)* | **Diễn tập 6 Kịch bản An ninh Cốt lõi (Câu 2):** Tự động thực thi và in bằng chứng JSON trực quan cho: Che mờ DDM, Thiết bị lạ mTLS, Phân vùng RLS, Xung đột chính sách Deny-overrides, Tấn công Replay sau Logout và Sự cố sập OPA Fail-Closed. |
+| [`run_cau3_checks.py`](file:///run/media/tamdae/04C8A69DC8A68C8C/Users/LENOVO/Documents/TL_Kỳ_1_năm_4/Data_Security/rebuild/scripts/run_cau3_checks.py) | `python3 scripts/run_cau3_checks.py`<br/>*(hoặc `--bo 2`, `--bo 3`, `--bo 4`)* | **Bộ Kiểm chứng Đa tầng (Multi-tier Test Harness - Câu 3):** Chạy thực tế 22 ca HTTPS mTLS E2E, 5 ca kiểm thử sự cố chịu lỗi Fail-Closed, 5 ca kiểm thử hồi quy PostgreSQL RLS tại lõi SQL, và kiểm tra chống Race Condition trên UI. |
+| [`run_cau45_analysis.py`](file:///run/media/tamdae/04C8A69DC8A68C8C/Users/LENOVO/Documents/TL_Kỳ_1_năm_4/Data_Security/rebuild/scripts/run_cau45_analysis.py) | `python3 scripts/run_cau45_analysis.py` | **Phân tích Hiệu năng & Quy mô Chính sách (Câu 4 & 5):** Trích xuất và phân tích 3.081 mẫu đo độ trễ Gateway ($P_{50}$, $P_{95}$, Throughput 89 RPS, OPA eval ~1 ms), đo độ trễ live trực tiếp, và phân tích 2 điểm nghẽn kỹ thuật (RAM 1.7 GB và nghẽn I/O 60% timeout khi bật Trace) ở quy mô 5.000 chính sách. |
+| [`setup_gateway.py`](file:///run/media/tamdae/04C8A69DC8A68C8C/Users/LENOVO/Documents/TL_Kỳ_1_năm_4/Data_Security/rebuild/scripts/setup_gateway.py) | `python3 scripts/setup_gateway.py` | **Khởi tạo Hạ tầng Mật mã PKI:** Tự động sinh Root CA, chứng chỉ Server/Client, cấp phát mật khẩu ngẫu nhiên PBKDF2 và xuất cấu hình `.gateway/`. |
+| [`enroll_device.py`](file:///run/media/tamdae/04C8A69DC8A68C8C/Users/LENOVO/Documents/TL_Kỳ_1_năm_4/Data_Security/rebuild/scripts/enroll_device.py) | `python3 scripts/enroll_device.py --device-name <name>` | **Đăng ký Thiết bị Máy khách mới:** Cấp chứng thư số x509, ghi danh vào `registry.json` và đóng gói file `.p12` để cài vào trình duyệt. |
 
 ---
 
@@ -300,6 +353,9 @@ rebuild/
 │   ├── gateway.css                 # Định kiểu trạng thái ALLOW/DENY & Mobile Responsive
 │   └── gateway.js                  # Bộ điều khiển client lưu JWT trong RAM, chống XSS
 ├── scripts/                        # Bộ công cụ tự động hóa PKI, SQL & Vận hành
+│   ├── demo_6_kich_ban.py          # Kịch bản diễn tập tự động 6 ca an ninh cốt lõi (Câu 2)
+│   ├── run_cau3_checks.py          # Bộ kiểm chứng đa tầng: 22 E2E, 5 Outage, 5 RLS, 2 UI (Câu 3)
+│   ├── run_cau45_analysis.py       # Phân tích độ trễ Gateway P50/P95 và điểm nghẽn 5K Policy (Câu 4&5)
 │   ├── setup_gateway.py            # Master PKI: Tự động sinh Root CA, Certs, Passwords, .p12
 │   ├── enroll_device.py            # Đăng ký thiết bị mTLS mới & xuất file PKCS#12
 │   ├── add_accounts.py             # Bổ sung tài khoản kiểm thử bảo mật (intern, risk, revoked)
