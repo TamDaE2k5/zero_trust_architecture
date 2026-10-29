@@ -3,6 +3,8 @@ KICH_BAN*.md
 NIST_*.md
 
 tests/report
+tests/reports
+
 scripts/demo*.py
 
 
